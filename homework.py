@@ -30,7 +30,7 @@ HOMEWORK_STATUSES = {
 
 
 def send_message(bot, message):
-    """Бот отправляет сообщение"""
+    """Бот отправляет сообщение."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.info('Сообщение отправлено')
@@ -39,7 +39,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(current_timestamp):
-    """Получает ответ от API"""
+    """Получает ответ от API."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
     try:
@@ -62,7 +62,7 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
-    """Проверка response"""
+    """Получаем последнюю работу."""
     try:
         response['homeworks']
     except KeyError:
@@ -89,13 +89,13 @@ def parse_status(homework):
 
 
 def check_tokens():
-    """Проверка токенов"""
+    """Проверка токенов."""
     try:
         if not PRACTICUM_TOKEN:
             return False
-        if not TELEGRAM_CHAT_ID:
+        elif not TELEGRAM_CHAT_ID:
             return False
-        if not TELEGRAM_TOKEN:
+        elif not TELEGRAM_TOKEN:
             return False
         return True
     except Exception as error:
@@ -109,7 +109,7 @@ def main():
     current_timestamp = int(time.time()) - ONE_DAY * 10
 
     prev_work_status = ''
-    
+
     while True:
         try:
             response = get_api_answer(current_timestamp)
