@@ -75,7 +75,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Узнаем статус работы"""
+    """Узнаем статус работы."""
     if 'homework_name' not in homework:
         raise KeyError('Отсутсвует ключ имени')
     if 'status' not in homework:
