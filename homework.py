@@ -48,7 +48,7 @@ def get_api_answer(current_timestamp):
         if response.status_code != HTTPStatus.OK:
             status_code = response.status_code
             raise Exception(f'Ошибка {status_code}, запрос: {ENDPOINT}')
-        return response.json()   
+        return response.json()
     except Exception as error:
         raise Exception(f'Ошибка при запросе к API: {error}')
 
@@ -57,7 +57,7 @@ def check_response(response):
     """Получаем последнюю работу."""
     if response:
         response['homeworks'] and response['current_date']
-    else:    
+    else:
         raise KeyError(f'Ошибка словаря {response}')
     if response:
         homework = response.get('homeworks')[0]
@@ -83,6 +83,7 @@ def parse_status(homework):
 def check_tokens():
     """Проверка токенов."""
     return all([PRACTICUM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOKEN])
+
 
 def main():
     """Основная логика работы бота."""
