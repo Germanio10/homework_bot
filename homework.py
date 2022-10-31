@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from http import HTTPStatus
 from dotenv import load_dotenv
 import os
@@ -8,9 +9,6 @@ import logging
 
 load_dotenv()
 
-logging.basicConfig(level=logging.DEBUG,
-                    filename='main.log',
-                    format='%(asctime)s, %(levelname)s, %(message)s')
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -33,9 +31,10 @@ def send_message(bot, message):
     """Бот отправляет сообщение."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.info('Сообщение отправлено')
     except Exception:
-        logging.error('Сообщение не отправлено')
+        raise Exception('Сообщение не отправлено')
+    else:
+        logger.info('Сообщение отправлено')
 
 
 def get_api_answer(current_timestamp):
@@ -46,85 +45,75 @@ def get_api_answer(current_timestamp):
         response = requests.get(ENDPOINT,
                                 params=params,
                                 headers=HEADERS)
-    except Exception:
-        logging.error('Недоступен ENDPOINT')
-
-    if response.status_code != HTTPStatus.OK:
-        status_code = response.status_code
-        raise Exception(f'Ошибка {status_code}')
-    if response.status_code == 503:
-        status_code = response.status_code
-        logging.error('Сбой при запросе')
-    try:
-        return response.json()
-    except ValueError:
-        raise ValueError('Ошибка перевода в json')
+        if response.status_code != HTTPStatus.OK:
+            status_code = response.status_code
+            raise Exception(f'Ошибка {status_code}, запрос: {ENDPOINT}')
+        return response.json()   
+    except Exception as error:
+        raise Exception(f'Ошибка при запросе к API: {error}')
 
 
 def check_response(response):
     """Получаем последнюю работу."""
-    try:
-        response['homeworks']
-    except KeyError:
-        logging.error('Ошибка в словаре')
-    try:
+    if response:
+        response['homeworks'] and response['current_date']
+    else:    
+        raise KeyError(f'Ошибка словаря {response}')
+    if response:
         homework = response.get('homeworks')[0]
         return homework
-    except IndexError:
+    else:
         raise IndexError('Список работ пуст')
 
 
 def parse_status(homework):
     """Узнаем статус работы."""
     if 'homework_name' not in homework:
-        raise KeyError('Отсутсвует ключ имени')
+        raise KeyError(f'Отсутсвует ключ имени в {homework}')
     if 'status' not in homework:
-        logging.error('Отсутствует ключ статуса в словаре')
+        raise KeyError(f'Отсутствует ключ статуса в словаре {homework}')
     homework_name = homework['homework_name']
     homework_status = homework['status']
     if homework_status not in HOMEWORK_STATUSES:
-        logging.error('Неизвестный статус работы')
+        raise Exception(f'Неизвестный статус работы {homework_status}')
     verdict = HOMEWORK_STATUSES[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_tokens():
     """Проверка токенов."""
-    try:
-        if not PRACTICUM_TOKEN:
-            return False
-        elif not TELEGRAM_CHAT_ID:
-            return False
-        elif not TELEGRAM_TOKEN:
-            return False
-        return True
-    except Exception as error:
-        logging.critical(f'Не хватает токена {error}')
-        return False
-
+    return all([PRACTICUM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOKEN])
 
 def main():
     """Основная логика работы бота."""
+    if not check_tokens():
+        logging.critical('Отсутсвуют токены')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time()) - ONE_DAY * 10
 
-    prev_work_status = ''
+    status_messgage = ''
+    error_message = ''
 
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            current_status = response.get('homeworks')[0].get('status')
             message = parse_status(check_response(response))
-            if prev_work_status != current_status:
+            if message != status_messgage:
                 send_message(bot, message)
-                prev_work_status = current_status
-            time.sleep(RETRY_TIME)
+                status_messgage = message
         except Exception as error:
             logging.error(error)
             message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
+            if message != error_message:
+                send_message(bot, message)
+                error_message = message
+        finally:
             time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG,
+                        filename='main.log',
+                        format='%(asctime)s, %(levelname)s, %(message)s')
+
     main()
