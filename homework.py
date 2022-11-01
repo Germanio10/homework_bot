@@ -6,6 +6,7 @@ import telegram
 import time
 import requests
 import logging
+from exceptions import MessageSendingError
 
 load_dotenv()
 
@@ -32,7 +33,7 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
     except Exception:
-        raise Exception('Сообщение не отправлено')
+        raise MessageSendingError('Сообщение не отправлено')
     else:
         logger.info('Сообщение отправлено')
 
@@ -47,23 +48,24 @@ def get_api_answer(current_timestamp):
                                 headers=HEADERS)
         if response.status_code != HTTPStatus.OK:
             status_code = response.status_code
-            raise Exception(f'Ошибка {status_code}, запрос: {ENDPOINT}')
+            raise Exception(f'Ошибка {status_code}, запрос: {ENDPOINT}'
+                            f'хэдер:{HEADERS}, параметры: {params}')
         return response.json()
     except Exception as error:
-        raise Exception(f'Ошибка при запросе к API: {error}')
+        raise Exception(f'Ошибка при запросе к API: {error}, запрос:{ENDPOINT}'
+                        f'хэдер:{HEADERS}, параметры: {params} ')
 
 
 def check_response(response):
     """Получаем последнюю работу."""
-    if response:
-        response['homeworks'] and response['current_date']
+    if type(response) is not dict:
+        raise TypeError('Ошибка типа')
+    if 'homeworks' and 'current_date' not in response:
+        raise KeyError(f"Ошибка в словаре {response}")
+    if type(response.get('homeworks')) is list:
+        return response.get('homeworks')
     else:
-        raise KeyError(f'Ошибка словаря {response}')
-    if response:
-        homework = response.get('homeworks')[0]
-        return homework
-    else:
-        raise IndexError('Список работ пуст')
+        raise AssertionError('Работы приходят не в виде списка')
 
 
 def parse_status(homework):
@@ -90,24 +92,26 @@ def main():
     if not check_tokens():
         logging.critical('Отсутсвуют токены')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time()) - ONE_DAY * 10
 
     status_messgage = ''
     error_message = ''
 
     while True:
         try:
+            current_timestamp = int(time.time()) - ONE_DAY * 10
             response = get_api_answer(current_timestamp)
             message = parse_status(check_response(response))
             if message != status_messgage:
                 send_message(bot, message)
                 status_messgage = message
-        except Exception as error:
+        except(TypeError, AssertionError, KeyError) as error:
             logging.error(error)
             message = f'Сбой в работе программы: {error}'
             if message != error_message:
                 send_message(bot, message)
                 error_message = message
+        except Exception as error:
+            logging.error(error)
         finally:
             time.sleep(RETRY_TIME)
 
