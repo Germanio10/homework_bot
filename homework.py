@@ -7,6 +7,7 @@ import time
 import requests
 import logging
 from exceptions import MessageSendingError
+import sys
 
 load_dotenv()
 
@@ -58,14 +59,13 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Получаем последнюю работу."""
-    if type(response) is not dict:
+    if isinstance(response, (tuple, list)):
         raise TypeError('Ошибка типа')
     if 'homeworks' and 'current_date' not in response:
         raise KeyError(f"Ошибка в словаре {response}")
-    if type(response.get('homeworks')) is list:
-        return response.get('homeworks')
-    else:
-        raise AssertionError('Работы приходят не в виде списка')
+    if isinstance(response.get('homeworks'), list):
+        return response.get('homeworks')[0]
+    raise AssertionError('Работы приходят не в виде списка')
 
 
 def parse_status(homework):
@@ -91,20 +91,22 @@ def main():
     """Основная логика работы бота."""
     if not check_tokens():
         logging.critical('Отсутсвуют токены')
+        sys.exit(1)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
 
     status_messgage = ''
     error_message = ''
+    current_timestamp = int(time.time()) - ONE_DAY * 10
 
     while True:
         try:
-            current_timestamp = int(time.time()) - ONE_DAY * 10
             response = get_api_answer(current_timestamp)
             message = parse_status(check_response(response))
+            current_timestamp = response.get('current_timestamp')
             if message != status_messgage:
                 send_message(bot, message)
                 status_messgage = message
-        except(TypeError, AssertionError, KeyError) as error:
+        except MessageSendingError as error:
             logging.error(error)
             message = f'Сбой в работе программы: {error}'
             if message != error_message:
