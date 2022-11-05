@@ -96,7 +96,7 @@ def main():
 
     status_messgage = ''
     error_message = ''
-    current_timestamp = int(time.time()) - ONE_DAY * 10
+    current_timestamp = int(time.time()) - ONE_DAY * 20
 
     while True:
         try:
