@@ -59,12 +59,12 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Получаем последнюю работу."""
-    if isinstance(response, (tuple, list)):
+    if not isinstance(response, dict):
         raise TypeError('Ошибка типа')
-    if 'homeworks' and 'current_date' not in response:
+    if 'homeworks' not in response and 'current_date' not in response:
         raise KeyError(f"Ошибка в словаре {response}")
     if isinstance(response.get('homeworks'), list):
-        return response.get('homeworks')[0]
+        return response.get('homeworks')
     raise AssertionError('Работы приходят не в виде списка')
 
 
@@ -101,19 +101,20 @@ def main():
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            message = parse_status(check_response(response))
+            message = parse_status(check_response(response)[0])
             current_timestamp = response.get('current_timestamp')
             if message != status_messgage:
                 send_message(bot, message)
                 status_messgage = message
         except MessageSendingError as error:
             logging.error(error)
+        except Exception as error:
+            logging.error(error)
             message = f'Сбой в работе программы: {error}'
             if message != error_message:
                 send_message(bot, message)
                 error_message = message
-        except Exception as error:
-            logging.error(error)
+
         finally:
             time.sleep(RETRY_TIME)
 
