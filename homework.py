@@ -96,13 +96,17 @@ def main():
 
     status_messgage = ''
     error_message = ''
+    message_list = []
     current_timestamp = int(time.time()) - ONE_DAY * 20
 
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            message = parse_status(check_response(response)[0])
-            current_timestamp = response.get('current_timestamp')
+            if check_response(response) != message_list:
+                message = parse_status(check_response(response)[0])
+                current_timestamp = response.get('current_timestamp')
+            else:
+                logging.INFO('Список работ пуст')
             if message != status_messgage:
                 send_message(bot, message)
                 status_messgage = message
